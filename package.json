@@ -1,0 +1,29 @@
+{
+  "name": "curry-types",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "start": "env NODE_ENV=development nodemon --watch 'src/**/*.ts' --exec node --inspect=127.0.0.1 -r ts-node/register src/index.ts",
+    "build": "rm -Rf dist/* && tsc --outDir dist",
+    "test": "jest --watch"
+  },
+  "author": "rjbma",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/jest": "^25.2.1",
+    "@types/node": "^13.9.1",
+    "@types/ramda": "^0.27.4",
+    "jest": "^25.5.4",
+    "nodemon": "^2.0.3",
+    "ts-jest": "^25.4.0",
+    "ts-node-dev": "^1.0.0-pre.44",
+    "typescript": "^3.8.3"
+  },
+  "dependencies": {
+    "@types/boom": "^7.3.0",
+    "@types/puppeteer": "^2.0.1",
+    "boom": "^7.3.0",
+    "puppeteer": "^3.0.2",
+    "ramda": "^0.27.0"
+  }
+}
