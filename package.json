@@ -1,5 +1,8 @@
 {
   "name": "curry-types",
+  "engines": {
+    "node": ">10"
+  },
   "version": "1.0.0",
   "description": "",
   "scripts": {

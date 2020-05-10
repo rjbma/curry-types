@@ -1,4 +1,5 @@
 import Task from '../src/Task'
+import { test } from '../src/fuppeteer'
 
 describe('`Task`', () => {
   it('`of` always produces a successful task', () =>
@@ -61,4 +62,27 @@ describe('`Task`', () => {
       .chain(n => Task.of(n * 2))
       .toPromise()
       .catch(e => expect(e).toBe('Err')))
+
+  it('`sequenceArray` works with an array of resolved tasks', () => {
+    const ts = [1, 2, 3].map(Task.of)
+
+    Task.sequenceArray(ts)
+      .toPromise()
+      .then(v => expect(v).toEqual([1, 2, 3]))
+  })
+
+  it('`sequenceArray` works with an empty array', () => {
+    Task.sequenceArray([])
+      .toPromise()
+      .then(v => expect(v).toEqual([]))
+  })
+
+  it('`sequenceArray` works with an array that contains a rejected task', () => {
+    const msg = '2 has failed'
+    const ts = [Task.of(1), Task.fail(msg), Task.of(3)]
+
+    return Task.sequenceArray(ts)
+      .toPromise()
+      .catch(e => expect(e).toBe(msg))
+  })
 })
