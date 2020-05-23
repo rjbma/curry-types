@@ -4,7 +4,7 @@ type TaskConstructor<L, R> = (rej: (l: L) => void, res: (r: R) => void) => void
 interface Task<L, R> {
   map: <R2>(fn: Mapper<R, R2>) => Task<L, R2>
   mapError: <L2>(fn: Mapper<L, L2>) => Task<L2, R>
-  recover: (fn: () => R) => Task<L, R>
+  recover: (fn: (l: L) => R) => Task<never, R>
   chain: <R2>(fn: Mapper<R, Task<L, R2>>) => Task<L, R2>
   fork: <T>(rej: (l: L) => T, res: (r: R) => T) => void
   toString(): string
@@ -14,7 +14,7 @@ interface Task<L, R> {
 const Task = <L, R>(t: TaskConstructor<L, R>): Task<L, R> => ({
   map: fn => Task((l, r) => t(l, (x: R) => r(fn(x)))),
   mapError: fn => Task((l, r) => t((x: L) => l(fn(x)), r)),
-  recover: fn => Task((l, r) => r(fn())),
+  recover: fn => Task((l, r) => t((l: L) => r(fn(l)), r)),
   chain: fn => Task((l, r) => t(l, (x: R) => fn(x).fork(l, rx => r(rx)))),
   fork: (fl, fr) => t(fl, fr),
   toPromise: () => new Promise((pres, prej) => t(prej, pres)),

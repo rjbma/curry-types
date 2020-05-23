@@ -1,6 +1,7 @@
 import R from 'ramda'
 import Task from './Task'
 import * as fup from '../src/fuppeteer'
+import puppeteer, { Page, ElementHandle, Browser } from 'puppeteer'
 
 // country names
 // fup.launchBrowser
@@ -25,7 +26,7 @@ interface Country {
 // scrapeCountry :: DOM -> Task Error Country
 const scrapeCountry = (dom: fup.Element) =>
   Task.sequenceObject<Error, Country>({
-    name: fup.elementText(dom),
+    name: fup.elementInnerText(dom),
     flagUrl: fup
       .selectFirst('img')(dom)
       .mapError(() => new Error('flag not found'))
@@ -53,18 +54,18 @@ interface Character {
 
 const scrapeCharacter = (dom: fup.Element) => {
   return Task.sequenceObject<Error, Character>({
-    name: fup
-      .selectFirst("[data-source='fullname'] .pi-data-value")(dom)
+    name: Task.of(dom)
+      .chain(fup.selectFirst("[data-source='fullname'] .pi-data-value"))
       .mapError(() => new Error('Name element not found!'))
-      .chain(fup.elementText),
-    age: fup
-      .selectFirst("[data-source='birthday'] .pi-data-value")(dom)
-      .chain(fup.evaluate(element => element?.firstChild?.textContent || ''))
-      .mapError(() => new Error('Age element not found!')),
-    pets: fup
-      .selectFirst("[data-source='pets'] .pi-data-value")(dom)
-      .chain(fup.elementText)
-      .recover(() => ''),
+      .chain(fup.elementImmediateText),
+    age: Task.of(dom)
+      .chain(fup.selectFirst("[data-source='birthday'] .pi-data-value"))
+      .mapError(() => new Error('Age element not found!'))
+      .chain(fup.elementImmediateText),
+    pets: Task.of(dom)
+      .chain(fup.selectFirst("[data-source='pets'] .pi-data-value"))
+      .chain(fup.elementInnerText)
+      .recover(() => 'none'),
   })
 }
 
@@ -80,7 +81,25 @@ const scrapeCharacters = (url: string) =>
     // OR .chain(els => Task.sequenceArray(els.map(scrapeCountry)))
     .fork(console.error, console.log)
 
-// scrapeCharacters('https://gravityfalls.fandom.com/wiki/Gideon_Gleeful')
+// const scrapeCharacterWithPromises = (dom: ElementHandle) =>
+//   dom.$("[data-source='fullname'] .pi-data-value")
+//     .catch(err => { throw new Error("name not found")})
+//     .then(el => el.getProperty('innerText'))
+// const scrapeWithPromises = (url: string) =>
+//   puppeteer
+//     .launch()
+//     .then(browser =>
+//       browser.newPage().then(page => page.goto(url).then(() => page)),
+//     )
+//     .then(page =>
+//       page.$('.portable-infobox').catch(err => {
+//         throw new Error('invalid page. Details: ' + err.message)
+//       }),
+//     )
+//     .then(r => console.log('result', r))
+// scrapeWithPromises('https://gravityfalls.fandom.com/wiki/Mabel_Pines')
+
+// scrapeCharacters('https://gravityfalls.fandom.com/wiki/Mabel_Pines')
 // scrapeCharacters('https://gravityfalls.fandomd.com/wiki/Gideon_Gleeful')
 // scrapeCharacters('https://www.google.es')
 // scrapeCharacters('https://gravityfalls.fandom.com/wiki/Wendy_Corduroy')
@@ -99,32 +118,36 @@ const scrapeRecipeMeta = (i: number) => (dom: fup.Page) =>
     .selectAll('.recipe-meta-item')(dom)
     .map(els => els[i])
     .chain(fup.selectFirst('.recipe-meta-item-body'))
-    .chain(fup.elementText)
+    .chain(fup.elementInnerText)
 
 const scrapeRecipe = (dom: fup.Page) =>
-  Task.sequenceObject<Error, Recipe>({
-    name: fup
-      .selectFirst('.recipe-content .headline')(dom)
-      .chain(fup.elementText),
-    prepTime: scrapeRecipeMeta(0)(dom),
-    totalTime: scrapeRecipeMeta(2)(dom),
-    servings: scrapeRecipeMeta(3)(dom).map(s => +s),
-    ingredients: fup
-      .selectAll('.ingredients-item .ingredients-item-name')(dom)
-      .map(is => is.map(fup.elementText))
-      .chain(Task.sequenceArray),
-    steps: fup
-      .selectAll('.instructions-section-item .section-body')(dom)
-      .chain(Task.traverseArray(fup.elementText)),
-  })
+  fup
+    .selectAll('.recipe-meta-item')(dom)
+    .chain(Task.traverseArray(fup.elementInnerText))
+// Task.sequenceObject<Error, Recipe>({
+//   name: fup
+//     .selectFirst('.recipe-content .headline')(dom)
+//     .chain(fup.elementText),
+//   prepTime: scrapeRecipeMeta(0)(dom),
+//   totalTime: scrapeRecipeMeta(2)(dom),
+//   servings: scrapeRecipeMeta(3)(dom).map(s => +s),
+//   ingredients: fup
+//     .selectAll('.ingredients-item .ingredients-item-name')(dom)
+//     .map(is => is.map(fup.elementText))
+//     .chain(Task.sequenceArray),
+//   steps: fup
+//     .selectAll('.instructions-section-item .section-body')(dom)
+//     .chain(Task.traverseArray(fup.elementText)),
+// })
 
 const allr = () =>
   fup.launchBrowser
     .chain(
       fup.openPage('https://www.allrecipes.com/recipe/13199/wonton-soup'),
-      // 'https://www.allrecipes.com/recipe/228052/chinese-pork-dumplings',
-      //   ),
+      // fup.openPage(
+      //   'https://www.allrecipes.com/recipe/228052/chinese-pork-dumplings',
+      // ),
     )
     .chain(scrapeRecipe)
 
-allr().fork(console.error, console.log)
+// allr().fork(console.error, console.log)
