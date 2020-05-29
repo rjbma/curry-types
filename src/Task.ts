@@ -1,52 +1,89 @@
+// some helper types to make type signatures easier to read
 type Mapper<T, U> = (value: T) => U
-type TaskConstructor<L, R> = (rej: (l: L) => void, res: (r: R) => void) => void
+type Chainer<E, A, B> = Mapper<A, Task<E, B>>
+type TaskConstructor<E, A> = (
+  reject: (e: E) => void,
+  resolve: (a: A) => void,
+) => void
 
-interface Task<L, R> {
-  map: <R2>(fn: Mapper<R, R2>) => Task<L, R2>
-  mapError: <L2>(fn: Mapper<L, L2>) => Task<L2, R>
-  recover: (fn: (l: L) => R) => Task<never, R>
-  chain: <R2>(fn: Mapper<R, Task<L, R2>>) => Task<L, R2>
-  fork: <T>(rej: (l: L) => T, res: (r: R) => T) => void
-  toString(): string
-  toPromise(): Promise<R>
-}
+// of :: a -> Task never a
+const of = <A>(r: A) => Task<never, A>((_, resolve) => resolve(r))
 
-const Task = <L, R>(t: TaskConstructor<L, R>): Task<L, R> => ({
-  map: fn => Task((l, r) => t(l, (x: R) => r(fn(x)))),
-  mapError: fn => Task((l, r) => t((x: L) => l(fn(x)), r)),
-  recover: fn => Task((l, r) => t((l: L) => r(fn(l)), r)),
-  chain: fn => Task((l, r) => t(l, (x: R) => fn(x).fork(l, rx => r(rx)))),
-  fork: (fl, fr) => t(fl, fr),
-  toPromise: () => new Promise((pres, prej) => t(prej, pres)),
-})
+// fail :: e -> Task e never
+const fail = <E>(err: E) => Task<E, never>((reject, _) => reject(err))
 
-const fromPromise = <R>(r: () => Promise<R>) =>
-  Task<Error, R>((rej, res) => {
+// map :: (a -> b) -> Task e a -> Task e b
+const map = <A, B>(fn: Mapper<A, B>) => <E>(task: Task<E, A>) =>
+  Task<E, B>((reject, resolve) => task.fork(reject, a => resolve(fn(a))))
+
+// chain :: (a -> Task f b) -> Task e a -> Task (e | f) b
+const chain = <F, A, B>(fn: Chainer<F, A, B>) => <E>(task: Task<E, A>) =>
+  Task<E | F, B>((reject, resolve) =>
+    task.fork(
+      e => reject(e),
+      a => fork(reject, resolve)(fn(a)),
+    ),
+  )
+
+// recovers from a failed task, transforming a possible error into a success
+// successful tasks are not affected by this function
+// recover :: (e -> b) -> Task e a -> Task never (a | b)
+const recover = <E, B>(fn: Mapper<E, B>) => <A>(task: Task<E, A>) =>
+  Task<never, A | B>((_, resolve) =>
+    task.fork(
+      e => resolve(fn(e)),
+      a => resolve(a),
+    ),
+  )
+
+// mapError :: (e -> f) -> Task e a -> Task f a
+const mapError = <E, F>(fn: Mapper<E, F>) => <A>(task: Task<E, A>) =>
+  Task<F, A>((reject, resolve) => task.fork(e => reject(fn(e)), resolve))
+
+// fork :: (e -> void, a -> void) -> Task e a -> void
+const fork = <E, A>(onReject: (e: E) => void, onResolve: (a: A) => void) => (
+  task: Task<E, A>,
+) => task.fork(onReject, onResolve)
+
+// toPromise :: Task e a -> Promise a
+const toPromise = <E, A>(task: Task<E, A>) =>
+  new Promise<A>((resolve, reject) => fork(reject, resolve)(task))
+
+// fromPromise :: (() -> Promise a) -> Task e a
+const fromPromise = <A>(r: () => Promise<A>) =>
+  Task<Error, A>((reject, resolve) => {
     try {
       r()
-        .then(res)
-        .catch((e: Error) => rej(e))
+        .then(resolve)
+        .catch((e: Error) => reject(e))
     } catch (e) {
-      rej(e as Error)
+      reject(e as Error)
     }
   })
 
-const timeout = (ms: number) => <R>(fn: () => R) =>
-  Task<unknown, R>((rej, res) => {
+// timeout :: number -> (() -> a) -> Task never a
+const timeout = (ms: number) => <A>(fn: () => A) =>
+  Task<never, A>((rej, res) => {
     setTimeout(() => res(fn()), ms)
   })
 
-const append = <X>(xs: X[]) => (x: X) => xs.concat([x])
+// ap :: Task e (a -> b) -> Task e a -> Task e b
+const ap = <E, A, B>(taskMapper: Task<E, Mapper<A, B>>) => (task: Task<E, A>) =>
+  taskMapper.chain(task.map)
 
-// sequenceArray :: List (Task L R) -> Task L (List R)
-const sequenceArray = <L, R>(ts: Task<L, R>[]) =>
-  ts.reduce(
-    (acc, task) => statics.ap(acc.map(append))(task),
-    statics.of([] as R[]),
+// sequenceArray :: List (Task e a) -> Task e (List a)
+const sequenceArray = <E, A>(tasks: Task<E, A>[]) => {
+  const append = <X>(xs: X[]) => (x: X) => xs.concat([x])
+  return tasks.reduce(
+    (acc, task) => ap(acc.map(append))(task),
+    of([]) as Task<E, A[]>,
   )
+}
 
-// sequenceObject :: Object (Task L Rn) -> Task L (Object Rn)
-const sequenceObject = <L, R>(tobj: { [key: string]: Task<L, any> }) => {
+// sequenceObject :: Object (Task e Rn) -> Task L (Object Rn)
+// TODO: is there anyway to make this type-safe(r)?
+// const sequenceObject = <E, R>(tobj: Record<string, Task<E,any>> ) => {
+const sequenceObject = <E, R>(tobj: { [key: string]: Task<E, any> }) => {
   const keys = Object.keys(tobj)
   const values = sequenceArray(Object.values(tobj))
   return values.map(vs =>
@@ -55,26 +92,42 @@ const sequenceObject = <L, R>(tobj: { [key: string]: Task<L, any> }) => {
 }
 
 // traverseArray :: (a -> Task e b) -> List (Task e a) -> Task e (List b)
-const traverseArray = <L, R1, R2>(f: Mapper<R1, Task<L, R2>>) => (ts: R1[]) =>
-  statics.sequenceArray(ts.map(f))
+const traverseArray = <E, A, B>(f: Mapper<A, Task<E, B>>) => (tasks: A[]) =>
+  sequenceArray(tasks.map(f))
 
-const statics = {
-  of: <L, R>(r: R) => Task<L, R>((rej, res) => res(r)),
-  fail: <L, R>(l: L) => Task<L, R>((rej, res) => rej(l)),
-  // ap :: Task err (a -> b) -> Task err a -> Task err b
-  ap: <L, A, B>(tf: Task<L, Mapper<A, B>>) => (t: Task<L, A>) =>
-    tf.chain(t.map),
+// task constructor with some methods to allow dot-chaining
+interface Task<E, A> {
+  map: <B>(fn: Mapper<A, B>) => Task<E, B>
+  mapError: <F>(fn: Mapper<E, F>) => Task<F, A>
+  recover: <B>(fn: (l: E) => B) => Task<never, A | B>
+  chain: <F, B>(fn: Mapper<A, Task<F, B>>) => Task<E | F, B>
+  fork: TaskConstructor<E, A>
+  toPromise(): Promise<A>
+}
+const Task = <E, A>(t: TaskConstructor<E, A>): Task<E, A> => ({
+  map: fn => map(fn)(Task(t)),
+  mapError: fn => mapError(fn)(Task(t)),
+  chain: fn => chain(fn)(Task(t)),
+  recover: fn => recover(fn)(Task(t)),
+  fork: t,
+  toPromise: () => toPromise(Task(t)),
+})
+
+export default Object.assign(Task, {
+  of,
+  fail,
+  timeout,
+  map,
+  chain,
+  recover,
+  mapError,
+  toPromise,
+  fromPromise,
+  ap,
   sequenceArray,
   sequenceObject,
   traverseArray,
-  fromPromise,
-  timeout,
-}
-export default {
-  ...statics,
-  succeed: statics.of,
-  head: <L>(l: L) => <R>(t: Task<L, R[]>) =>
-    t.chain(data =>
-      data.length ? statics.of<L, R>(data[0]) : statics.fail<L, R>(l),
-    ),
-}
+})
+
+type TaskType<E, A> = Task<E, A>
+export { TaskType }

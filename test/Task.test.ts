@@ -1,5 +1,7 @@
 import Task from '../src/Task'
 
+const x = Task((rej, res) => res(1))
+
 describe('`Task`', () => {
   it('`of` always produces a successful task', () =>
     Task.of(10)
@@ -52,7 +54,7 @@ describe('`Task`', () => {
         .then(v => expect(v).toBe(4)))
 
     it('works with a rejected task', () =>
-      Task.fail<any, number>('ERR')
+      Task.fail('ERR')
         .map((n: number) => n * 2)
         .toPromise()
         .catch(e => expect(e).toBe('ERR')))
@@ -74,7 +76,7 @@ describe('`Task`', () => {
         .then(v => expect(v).toBe(24)))
 
     it('works with a rejected task', () =>
-      Task.fail<string, number>('Err')
+      Task.fail('Err')
         .chain(n => Task.of(n * 2))
         .toPromise()
         .catch(e => expect(e).toBe('Err')))
@@ -97,7 +99,7 @@ describe('`Task`', () => {
 
     it('works with an array that contains a rejected task', () => {
       const msg = '2 has failed'
-      const ts = [Task.of(1), Task.fail<string, number>(msg), Task.of(3)]
+      const ts = [Task.of(1), Task.fail(msg), Task.of(3)]
 
       return Task.sequenceArray(ts)
         .toPromise()

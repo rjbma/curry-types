@@ -1,7 +1,5 @@
 import puppeteer, { Page, ElementHandle, Browser } from 'puppeteer'
 import Task from './Task'
-import Boom from 'boom'
-import R from 'ramda'
 import { log } from './utils'
 
 type Url = string
@@ -14,9 +12,8 @@ type Element = ElementHandle
 type DOM = Page | ElementHandle
 type Selector = string
 
-const launchBrowser = Task.fromPromise(() =>
-  puppeteer.launch({ headless: true }),
-)
+const launchBrowser = (options?: puppeteer.LaunchOptions | undefined) =>
+  Task.fromPromise(() => puppeteer.launch(options))
 
 const openPage = (url: string) => (browser: Browser) =>
   Task.fromPromise(() =>
@@ -31,10 +28,8 @@ const selectAll = (sel: Selector) => (dom: DOM) =>
 const selectFirst = (sel: Selector) => (dom: DOM) =>
   Task.fromPromise(() => dom.$(sel)).chain(el =>
     el == null
-      ? Task.fail<Error, Element>(
-          new Error(`No element found with selector '${sel}'`),
-        )
-      : Task.of<Error, Element>(el),
+      ? Task.fail(new Error(`No element found with selector '${sel}'`))
+      : Task.of(el),
   )
 
 // elementText :: Dom -> Future Err String
