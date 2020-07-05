@@ -1,7 +1,79 @@
-import R from 'ramda'
-import TaskInstance, { TaskType } from './Task'
+import * as Task from './Task'
 import * as fup from '../src/fuppeteer'
-import puppeteer, { Page, ElementHandle, Browser } from 'puppeteer'
+import { exit } from 'process'
+
+const add = (x: number) => (y: number) => x + y
+// const task4 = Task.of(4)
+// const task2 = Task.of(2)
+// const taskAdd = Task.of(add)
+
+// task4.chain(three => task2.map(add(three)))
+
+// const x = Task.ap(taskAdd)(task4)
+// const y = Task.ap(x)(task2)
+// y.fork(console.log, console.log)
+
+// Task.ap(task4.map(add))(task2).fork(console.log, console.log)
+
+// // task4.map(add).ap(task2)
+// Task.ap(Task.ap(taskAdd)(task4))(task2).fork(console.log, console.log)
+
+// Task.liftA1(add(2)).ap(Task.of(33)).fork(console.log, console.log)
+
+const delayN = (n: number) => Task.of(n).delay(n * 1000)
+
+// const start = new Date().getTime()
+// Task.liftA2(add)
+//   .ap(delayN(1))
+//   .ap(delayN(2))
+//   // .ap(Task.of(3))
+//   .map(n => n + 2)
+//   .fork(console.log, res => console.log(res, new Date().getTime() - start))
+
+const ts = [1, 2, 3, 4, 5, 8].map(n => Task.of(n).delay(n * 10))
+
+const start = new Date().getTime()
+// Task.sequenceArray(ts).fork(
+Task.parallelArray(5)(ts).fork(
+  e => console.error('err', e),
+  r => {
+    console.log('res', r, new Date().getTime() - start)
+  },
+)
+
+// const t1 = Task.of(2).delay(2000)
+// const t2 = Task.of(3).delay(3000)
+// const start = new Date().getTime()
+// t1.chain(() => t2).fork(console.log, res =>
+//   console.log(res, new Date().getTime() - start),
+// )
+
+// const t1 = Task.of(2).delay(200)
+// const t2 = Task.of(3).delay(100)
+// const start = new Date().getTime()
+// const t = Task.ap(Task.ap(Task.of(add))(t1))(t2)
+// t.fork(
+//   () => console.log('ERR'),
+//   res => {
+//     console.log(res, new Date().getTime() - start)
+//   },
+// )
+
+// const t1 = Task.of(2).delay(1000)
+// const t2 = Task.of(3).delay(500)
+// const start = new Date().getTime()
+// Task.of(add)
+//   .ap(t1)
+//   .ap(t2)
+//   .fork(console.log, (res: any) =>
+//     console.log(res, new Date().getTime() - start),
+//   )
+
+// TODO
+// recover from error with default values. e.g., Task.fail('ERR').withDefault(2)
+// rename recover to `withDefault`
+// specify error. e.g., Task.fail("err").mapError("Scale is not available!")
+// is it possible to make `ap` dot-chainable???
 
 // country names
 // fup.launchBrowser
@@ -25,7 +97,7 @@ interface Country {
 
 // scrapeCountry :: DOM -> Task Error Country
 const scrapeCountry = (dom: fup.Element) =>
-  TaskInstance.sequenceObject<Error, Country>({
+  Task.sequenceObject<Error, Country>({
     name: fup.elementInnerText(dom),
     flagUrl: fup
       .selectFirst('img')(dom)
@@ -38,14 +110,9 @@ const scrapeCountries = () =>
     .launchBrowser()
     .chain(fup.openPage('http://example.webscraping.com/'))
     .chain(fup.selectAll('#results table td'))
-    .chain(TaskInstance.traverseArray(scrapeCountry))
+    .chain(Task.traverseArray(scrapeCountry))
     // OR .chain(els => Task.sequenceArray(els.map(scrapeCountry)))
     .fork(console.error, console.log)
-
-// TODO
-// typings for sequenceObject
-// recover from error with default values. e.g., Task.fail('ERR').withDefault(2)
-// specify error. e.g., Task.fail("err").mapError("Scale is not available!")
 
 interface Character {
   name: string
@@ -54,16 +121,16 @@ interface Character {
 }
 
 const scrapeCharacter = (dom: fup.Element) => {
-  return TaskInstance.sequenceObject<Error, Character>({
-    name: TaskInstance.of(dom)
+  return Task.sequenceObject<Error, Character>({
+    name: Task.of(dom)
       .chain(fup.selectFirst("[data-source='fullname'] .pi-data-value"))
       .mapError(() => new Error('Name element not found!'))
       .chain(fup.elementImmediateText),
-    age: TaskInstance.of(dom)
+    age: Task.of(dom)
       .chain(fup.selectFirst("[data-source='birthday'] .pi-data-value"))
       .mapError(() => new Error('Age element not found!'))
       .chain(fup.elementImmediateText),
-    pets: TaskInstance.of(dom)
+    pets: Task.of(dom)
       .chain(fup.selectFirst("[data-source='pets'] .pi-data-value"))
       .chain(fup.elementInnerText)
       .recover(() => 'none'),
@@ -125,7 +192,7 @@ const scrapeRecipeMeta = (i: number) => (dom: fup.Page) =>
 const scrapeRecipe = (dom: fup.Page) =>
   fup
     .selectAll('.recipe-meta-item')(dom)
-    .chain(TaskInstance.traverseArray(fup.elementInnerText))
+    .chain(Task.traverseArray(fup.elementInnerText))
 // Task.sequenceObject<Error, Recipe>({
 //   name: fup
 //     .selectFirst('.recipe-content .headline')(dom)
@@ -164,51 +231,65 @@ interface EChar {
 }
 
 const scrapeEChar = (dom: fup.Element) =>
-  TaskInstance.sequenceObject<Error, EChar>({
-    name: TaskInstance.of(dom)
+  Task.sequenceObject<Error, EChar>({
+    name: Task.of(dom)
       .chain(fup.selectFirst('.listView-column--name'))
       .chain(fup.elementInnerText),
-    tagline: TaskInstance.of(dom)
+    tagline: Task.of(dom)
       .chain(fup.selectFirst('.listView-column--tagline'))
       .chain(fup.elementInnerText),
-    power: TaskInstance.of(dom)
+    power: Task.of(dom)
       .chain(fup.selectFirst('.listView-column--power'))
       .chain(fup.elementInnerText),
-    hatIcon: TaskInstance.of(dom)
-      .chain(fup.selectFirst('.listView-column--hat'))
-      .chain(fup.elementInnerText),
+    hatIcon: Task.of(dom)
+      .chain(fup.selectFirst('.listView-column--hat img'))
+      .chain(fup.elementAttr('src'))
+      .recover(() => undefined),
+    imageUrl: Task.of(dom)
+      .chain(fup.selectFirst('.listView-column--img img'))
+      .chain(fup.elementAttr('src'))
+      .map(s => `https://rjbma.github.io/elm-listview/${s}`),
   })
 
 const elmlistview = () =>
   fup
-    .launchBrowser({ headless: false })
+    .launchBrowser({ headless: true })
     .chain(fup.openPage('https://rjbma.github.io/elm-listview/'))
-    .chain(elmLvPage)
+    .chain(elmLvPage([]))
 
-const elmLvPage = (page: fup.Page): TaskType<Error, EChar[]> =>
-  TaskInstance.of(page)
+const elmLvPage = (acc: EChar[]) => (
+  page: fup.Page,
+): Task.Type<Error, EChar[]> =>
+  Task.of(page)
     .chain(fup.selectAll('.example1 .listView-row'))
-    .chain(TaskInstance.traverseArray(scrapeEChar))
+    .chain(Task.traverseArray(scrapeEChar))
     .chain(data =>
       elmLvIsLastPage(page).chain(isLastPage =>
         isLastPage
-          ? TaskInstance.of(data)
-          : TaskInstance.of(page)
+          ? Task.of(acc.concat(data))
+          : Task.of(page)
               .chain(fup.selectFirst('.listView-paginatorNextButton'))
-              .chain(el => TaskInstance.fromPromise(() => el.click()))
-              .chain(() => elmLvPage(page)),
+              // TODO: `clickElement` probably should be in the standard fuppeteer API
+              .chain(el => Task.fromPromise(() => el.click()))
+              // must wait a reasonable amount of time so that the new page is rendered with JS...
+              // TODO: ugly, a much better solution would be to wait until some selector is visible maybe?
+              .delay(100)
+              // recursively scrape the next page, accumulating already scraped results
+              .chain(() => elmLvPage(acc.concat(data))(page)),
       ),
     )
 
+// check if we're already in the last page by comparing the page indexes (current & last)
 const elmLvIsLastPage = (page: fup.Page) =>
-  TaskInstance.of(page)
+  // TODO: this should be done in parallel
+  Task.of(page)
     .chain(fup.selectFirst('.listView-paginatorEndIndex'))
     .chain(fup.elementInnerText)
     .chain(endIndex =>
-      TaskInstance.of(page)
+      Task.of(page)
         .chain(fup.selectFirst('.listView-paginatorRowCount'))
         .chain(fup.elementInnerText)
         .map(rowCount => +endIndex == +rowCount),
     )
 
-elmlistview().fork(console.error, console.log)
+// elmlistview().fork(console.error, console.log)

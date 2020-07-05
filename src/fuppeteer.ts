@@ -1,5 +1,5 @@
 import puppeteer, { Page, ElementHandle, Browser } from 'puppeteer'
-import Task from './Task'
+import * as Task from './Task'
 import { log } from './utils'
 
 type Url = string

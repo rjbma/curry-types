@@ -8,7 +8,8 @@
   "scripts": {
     "start": "env NODE_ENV=development nodemon --watch 'src/**/*.ts' --exec node --inspect=127.0.0.1 -r ts-node/register src/index.ts",
     "build": "rm -Rf dist/* && tsc --outDir dist",
-    "test": "jest --watch"
+    "test": "jest --watch",
+    "coverage": "jest --watch --coverage"
   },
   "author": "rjbma",
   "license": "ISC",
