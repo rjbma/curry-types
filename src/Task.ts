@@ -117,23 +117,27 @@ const ap = <E, A, B>(taskMapper: Task<E, Mapper<A, B>>) => (task: Task<E, A>) =>
 // parallelArray :: Int ->  List (Task e a) -> Task e (List a)
 const parallelArray = (max: number) => <E, A>(tasks: Task<E, A>[]) =>
   Task((reject, resolve) => {
-    let started = { n: 0 }
-    let done = [] as A[]
+    const state = {
+      // number of Tasks already started
+      started: 0,
+      // number of Tasks already resolved
+      finished: 0,
+      // result of the resolved Tasks
+      result: [] as A[],
+    }
     doOne()
 
     function doOne() {
-      const index = started.n
-      const doneCount = done.filter(d => d !== undefined).length
-      if (doneCount >= tasks.length) {
-        resolve(done)
-      } else if (started.n < tasks.length) {
-        const inFlightCount = started.n - doneCount
-        if (inFlightCount < max) {
-          started.n++
-          // console.log('starting #', index)
+      if (state.finished >= tasks.length) {
+        resolve(state.result)
+      } else if (state.started < tasks.length) {
+        const inFlight = state.started - state.finished
+        if (inFlight < max) {
+          const index = state.started
+          state.started++
           tasks[index].fork(reject, result => {
-            // console.log('finished #', index)
-            done[index] = result
+            state.result[index] = result
+            state.finished++
             doOne()
           })
           doOne()
@@ -143,15 +147,8 @@ const parallelArray = (max: number) => <E, A>(tasks: Task<E, A>[]) =>
   })
 
 // sequenceArray :: List (Task e a) -> Task e (List a)
-// TODO this is being done in parallel!!!
-// TODO should just be implemented using `parallelArray`
-const sequenceArray = <E, A>(tasks: Task<E, A>[]) => {
-  const append = <X>(xs: X[]) => (x: X) => xs.concat([x])
-  return tasks.reduce(
-    (acc, task) => ap(acc.map(append))(task),
-    of([]) as Task<E, A[]>,
-  )
-}
+const sequenceArray = <E, A>(tasks: Task<E, A>[]) =>
+  parallelArray(1)(tasks) as Task<E, A[]>
 
 // sequenceObject :: Object (Task e any) -> Task e (Object any)
 // Transforms an object whose fields are Tasks into a Task with a "regular" objects with the same fields
