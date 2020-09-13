@@ -5,6 +5,7 @@
   },
   "version": "0.1.0",
   "description": "",
+  "keywords": ["async", "task", "future", "promise", "either", "maybe", "fp"],
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
