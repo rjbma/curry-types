@@ -1,7 +1,7 @@
 import Either from '../src/Either'
 const { fromNullable, fromFailable } = Either
 
-describe.skip('Either', () => {
+describe('Either', () => {
   it('`of` shoud always produce a `Right`', () => {
     expect(Either.of(null).isRight()).toBe(true)
     expect(Either.of(1).isRight()).toBe(true)
