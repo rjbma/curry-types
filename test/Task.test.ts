@@ -1,4 +1,4 @@
-import * as Task from '../src/Task'
+import { Task } from '../src/Task'
 
 describe('`Task`', () => {
   describe('constructors', () => {

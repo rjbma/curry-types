@@ -5,7 +5,15 @@
   },
   "version": "0.1.0",
   "description": "",
-  "keywords": ["async", "task", "future", "promise", "either", "maybe", "fp"],
+  "keywords": [
+    "async",
+    "task",
+    "future",
+    "promise",
+    "either",
+    "maybe",
+    "fp"
+  ],
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
@@ -26,6 +34,5 @@
     "ts-node-dev": "^1.0.0-pre.44",
     "typescript": "^3.8.3"
   },
-  "dependencies": {
-  }
+  "dependencies": {}
 }

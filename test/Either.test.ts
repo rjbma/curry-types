@@ -1,4 +1,4 @@
-import Either from '../src/Either'
+import { Either } from '../src/Either'
 const { fromNullable, fromFailable } = Either
 
 describe('Either', () => {
