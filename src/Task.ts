@@ -136,7 +136,7 @@ const ap =
 // parallelArray :: Int ->  List (Task e a) -> Task e (List a)
 const parallelArray =
   (max: number) =>
-  <E, A>(tasks: Task<E, A>[]) =>
+  <E, A>(tasks: Task<E, A>[]): Task<E, A[]> =>
     Task((reject, resolve) => {
       const state = {
         // number of Tasks already started
@@ -168,7 +168,7 @@ const parallelArray =
     })
 
 // sequenceArray :: List (Task e a) -> Task e (List a)
-const sequenceArray = <E, A>(tasks: Task<E, A>[]) =>
+const sequenceArray = <E, A>(tasks: Task<E, A>[]): Task<E, A[]> =>
   parallelArray(1)(tasks) as Task<E, A[]>
 
 // sequenceObject :: Object (Task e any) -> Task e (Object any)

@@ -1,9 +1,12 @@
+import { Task, TaskType } from './Task'
+
 type Mapper<T, U> = (value: T) => U
 
 interface Either<L, R> {
   map: <R2>(fn: Mapper<R, R2>) => Either<L, R2>
   chain: <R2>(fn: Mapper<R, Either<L, R2>>) => Either<L, R2>
   isRight: () => boolean
+  toTask: () => TaskType<L, R>
   toString(): string
 }
 
@@ -30,6 +33,7 @@ const Right = <L, R>(r: R): Either<L, R> => ({
   map: fn => Right(fn(r)),
   chain: fn => fn(r),
   isRight: () => true,
+  toTask: () => Task.of(r),
   toString: () => `Right(${r})`,
 })
 
@@ -37,6 +41,7 @@ const Left = <L, R>(l: L): Either<L, R> => ({
   map: () => Left(l),
   chain: () => Left(l),
   isRight: () => false,
+  toTask: () => Task.fail(l),
   toString: () => `Left(${l})`,
 })
 
@@ -55,6 +60,13 @@ const fromFailable =
     }
   }
 
+const sequenceArray = <E, A>(arr: Either<E, A>[]): Either<E, A[]> =>
+  arr.reduce((acc, bs) => {
+    return acc.chain(as => bs.map(b => [...as, b]))
+  }, Right([] as A[]))
+
+const toTask = <E, A>(either: Either<E, A>): TaskType<E, A> => either.toTask()
+
 const EitherModule = {
   Right,
   Left,
@@ -65,6 +77,8 @@ const EitherModule = {
     <L, R, R2>(fn: Mapper<R, R2>) =>
     (m: Either<L, R>) =>
       m.isRight() ? m.map(fn) : m,
+  sequenceArray,
+  toTask,
 }
 
 export { EitherModule as Either, Either as EitherType }
