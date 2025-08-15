@@ -2,7 +2,7 @@ type Mapper<T, U> = (value: T) => U
 
 interface Either<L, R> {
   map: <R2>(fn: Mapper<R, R2>) => Either<L, R2>
-  chain: <R2>(fn: Mapper<R, Either<R, R2>>) => Either<L, R2>
+  chain: <R2>(fn: Mapper<R, Either<L, R2>>) => Either<L, R2>
   isRight: () => boolean
   toString(): string
 }
