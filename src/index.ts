@@ -1,4 +1,4 @@
-import * as Task from './Task'
-import * as Either from './Either'
+import { Task, TaskType } from './Task'
+import { Either, EitherType } from './Either'
 
-export { Task, Either }
+export { Task, TaskType, Either, EitherType }
