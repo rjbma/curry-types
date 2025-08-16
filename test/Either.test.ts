@@ -1,4 +1,4 @@
-import { Either } from '../src/Either'
+import { Either, EitherType } from '../src/Either'
 const { fromNullable, fromFailable } = Either
 
 describe('Either', () => {
@@ -56,5 +56,5 @@ describe('Either', () => {
 
 const add = (a: number) => (b: number) => a + b
 
-const parseNumber = (s: string) =>
+const parseNumber = (s: string): EitherType<string, number> =>
   isNaN(parseFloat(s)) ? Either.Left('invalid') : Either.Right(parseFloat(s))

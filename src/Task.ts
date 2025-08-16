@@ -143,6 +143,8 @@ const parallelArray =
         started: 0,
         // number of Tasks already resolved
         finished: 0,
+        // whether the resolve function has been called
+        resolved: false,
         // result of the resolved Tasks
         result: [] as A[],
       }
@@ -150,7 +152,10 @@ const parallelArray =
 
       function doOne() {
         if (state.finished >= tasks.length) {
-          resolve(state.result)
+          if (!state.resolved) {
+            state.resolved = true
+            resolve(state.result)
+          }
         } else if (state.started < tasks.length) {
           const inFlight = state.started - state.finished
           if (inFlight < max) {
@@ -171,17 +176,26 @@ const parallelArray =
 const sequenceArray = <E, A>(tasks: Task<E, A>[]): Task<E, A[]> =>
   parallelArray(1)(tasks) as Task<E, A[]>
 
+type Unwrap<T> = T extends Task<any, infer Inner> ? Inner : T
+type UnwrapObject<T> = {
+  [K in keyof T]: Unwrap<T[K]>
+}
+
 // sequenceObject :: Object (Task e any) -> Task e (Object any)
 // Transforms an object whose fields are Tasks into a Task with a "regular" objects with the same fields
 // Note this doesn't type-check on the fields values (is it even possible in typescript?)
-const sequenceObject = <E, A>(tobj: TaskObject<E, A>): Task<E, A> => {
+const sequenceObject = <E, O extends Record<string, Task<E, unknown>>>(
+  tobj: O,
+): Task<E, UnwrapObject<O>> => {
   const keys = Object.keys(tobj)
   const values = sequenceArray<E, unknown>(Object.values(tobj))
   return values.map(vs =>
-    keys.reduce((acc, key, index) => ({ ...acc, [key]: vs[index] }), {} as A),
+    keys.reduce(
+      (acc, key, index) => ({ ...acc, [key]: vs[index] }),
+      {} as UnwrapObject<O>,
+    ),
   )
 }
-type TaskObject<E, T> = Record<keyof T, Task<E, any>>
 
 // traverseArray :: (a -> Task e b) -> List (Task e a) -> Task e (List b)
 const traverseArray =

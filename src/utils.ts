@@ -1,6 +1,4 @@
 import { Either, EitherType } from './Either'
-import request from 'request'
-import { Task } from './Task'
 
 type Curry2<A, B, R> = {
   (a: A): (b: B) => R
@@ -30,26 +28,27 @@ function curry3<A, B, C, R>(fn: (a: A, b: B, c: C) => R): Curry3<A, B, C, R> {
 
 const head = <T>(arr: T[]) => Either.fromNullable('Array is empty')(arr[0])
 
-const getHtml = (url: string) =>
-  Task.fromPromise(
-    () =>
-      new Promise<string>((res, rej) => {
-        const opts = { method: 'GET', uri: url }
-        request(opts, (error, response, body) => {
-          if (error) {
-            rej(error)
-          } else {
-            res(body)
-          }
-        })
-      }),
-  )
+const peek =
+  <V>(prefix: string) =>
+  (v: V) => {
+    if (
+      v &&
+      typeof v == 'object' &&
+      'toString' in v &&
+      typeof v.toString == 'function'
+    ) {
+      console.log(prefix, v.toString())
+    } else {
+      console.log(prefix, v)
+    }
+    return v
+  }
 
 const Utils = {
   head,
-  // curry2,
-  // curry3,
-  getHtml,
+  curry2,
+  curry3,
+  peek,
 }
 
 export { Utils }

@@ -4,6 +4,7 @@ type Mapper<T, U> = (value: T) => U
 
 interface Either<L, R> {
   map: <R2>(fn: Mapper<R, R2>) => Either<L, R2>
+  mapError: <L2>(fn: Mapper<L, L2>) => Either<L2, R>
   chain: <R2>(fn: Mapper<R, Either<L, R2>>) => Either<L, R2>
   isRight: () => boolean
   toTask: () => TaskType<L, R>
@@ -31,6 +32,7 @@ const ap =
 
 const Right = <L, R>(r: R): Either<L, R> => ({
   map: fn => Right(fn(r)),
+  mapError: fn => Right(r),
   chain: fn => fn(r),
   isRight: () => true,
   toTask: () => Task.of(r),
@@ -39,6 +41,7 @@ const Right = <L, R>(r: R): Either<L, R> => ({
 
 const Left = <L, R>(l: L): Either<L, R> => ({
   map: () => Left(l),
+  mapError: fn => Left(fn(l)),
   chain: () => Left(l),
   isRight: () => false,
   toTask: () => Task.fail(l),
@@ -47,8 +50,8 @@ const Left = <L, R>(l: L): Either<L, R> => ({
 
 const fromNullable =
   <L>(l: L) =>
-  <R>(r: R) =>
-    r == null ? Left<L, R>(l) : Right<L, R>(r)
+  <R>(r: R): Either<L, NonNullable<R>> =>
+    r == null ? Left<L, NonNullable<R>>(l) : Right<L, NonNullable<R>>(r)
 
 const fromFailable =
   <L>(l: L) =>
